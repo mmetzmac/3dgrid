@@ -1,0 +1,68 @@
+set daemon  120
+# poll at 2-minute intervals. Monit will wakeup every two minute to
+# monitor things. Time must be given in seconds.
+
+set logfile syslog facility log_daemon
+# Set syslog logging.
+
+# Set a default mail from-address for all alert messages emitted by monit.
+# All alert mail will be sent to below mail address.
+set mail-format { from: noreply@<monit_base_URL> }
+set alert <amail@address.com>
+
+# You can define your mail-notification format. Do man monit
+mail-format {
+   from: noreply@<monit_base_URL>
+   subject: $SERVICE $EVENT at $DATE
+   message: Monit $ACTION $SERVICE at $DATE on $HOST,
+
+   Yours sincerely,
+   Debianhelp
+   }
+
+# Make monit start its web-server. So you can access it from web browser.
+set httpd port 2812 and
+use address <monit_base_URL>
+
+##Monit web-server ACL.
+#allow localhost       # allow localhost to connect to the server and
+#allow 172.19.1.2     # allow 172.19.1.2 to connect to the server,
+                     # You can give only one per entry
+
+allow <user_id>:<password>     # user name and password for authentication.
+allow @users readonly
+
+
+# Monitoring the apache2 web services.
+# It will check process apache2 with given pid file.
+# If process name or pidfile path is wrong then monit will
+# give the error of failed. tough apache2 is running.
+check process apache2 with pidfile /var/run/apache2.pid
+
+ #Below is actions taken by monit when service got stuck.
+ start program = "/etc/init.d/apache2 start"
+ stop program  = "/etc/init.d/apache2 stop"
+ # Admin will notify by mail if below of the condition satisfied.
+ if cpu is greater than 60% for 2 cycles then alert
+ if cpu > 80% for 5 cycles then restart
+ if totalmem > 500.0 MB for 5 cycles then restart
+ if children > 400 then restart
+ if loadavg(5min) greater than 20 for 8 cycles then stop
+ if 3 restarts within 5 cycles then timeout
+ group Server
+
+#Check directory for permission.
+check directory bin with path /bin
+   if failed permission 755 then unmonitor
+   if failed uid 0 then unmonitor
+   if failed gid 0 then unmonitor
+
+#Check host for which services up/down on particular port.
+check host <URL> with address <IP_Address>
+   if failed icmp type echo with timeout 4 seconds then alert
+   if failed port 80 protocol http then alert
+
+
+
+
+    include /etc/monit/conf.d/*
